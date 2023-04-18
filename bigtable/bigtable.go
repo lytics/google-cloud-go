@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -158,6 +160,10 @@ type Table struct {
 
 // Open opens a table.
 func (c *Client) Open(table string) *Table {
+	b := make([]byte, 8192)
+	n := runtime.Stack(b, false)
+	fmt.Printf("table: %s, stack: %s", table, n)
+	debug.Stack()
 	return &Table{
 		c:     c,
 		table: table,
