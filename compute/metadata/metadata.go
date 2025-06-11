@@ -70,15 +70,40 @@ var defaultClient = &Client{
 
 func newDefaultHTTPClient() *http.Client {
 	return &http.Client{
-		Transport: &http.Transport{
-			Dial: (&net.Dialer{
-				Timeout:   2 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).Dial,
-			IdleConnTimeout: 60 * time.Second,
-		},
+		Transport: RoundTripper{},
 		//Timeout: 5 * time.Second,
 	}
+}
+
+type RoundTripper struct{}
+
+func (t RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+
+	start := time.Now()
+	transport := &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout:   2 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		IdleConnTimeout: 60 * time.Second,
+	}
+
+	resp, err := transport.RoundTrip(req)
+
+	if err != nil {
+		zap.L().Error("metadata request error",
+			zap.String("url", req.URL.String()),
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err))
+		return resp, err
+	}
+
+	zap.L().Info("metadata request",
+		zap.String("url", req.URL.String()),
+		zap.Duration("duration", time.Since(start)),
+	)
+
+	return resp, err
 }
 
 // NotDefinedError is returned when requested metadata is not defined.
@@ -511,7 +536,7 @@ func (c *Client) getETag(ctx context.Context, suffix string) (value, etag string
 			zap.Duration("since_start", time.Since(start)),
 			zap.Duration("since_cur", time.Since(current)),
 		)
-		zap.L().Info("metadata server request", fields...)
+		zap.L().Info("metadata server request (getETag)", fields...)
 		if delay, shouldRetry := retryer.Retry(code, reqErr); shouldRetry {
 			if res != nil && res.Body != nil {
 				res.Body.Close()
