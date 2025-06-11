@@ -95,7 +95,6 @@ func (t RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 			zap.String("url", req.URL.String()),
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err))
-		fmt.Printf("metadata request error: %s %v: %v\n", req.URL.String(), time.Since(start), err)
 		return resp, err
 	}
 
@@ -103,7 +102,6 @@ func (t RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		zap.String("url", req.URL.String()),
 		zap.Duration("duration", time.Since(start)),
 	)
-	fmt.Printf("metadata request: %s: %v\n", req.URL.String(), time.Since(start))
 
 	return resp, err
 }
@@ -157,11 +155,8 @@ func initOnGCE() {
 func testOnGCE() bool {
 	start := time.Now()
 	defer func() {
+		// zap isn't initialized yet
 		fmt.Printf("OnGCE check took %s with result %v\n", time.Since(start), onGCE)
-		zap.L().Info("OnGCE check",
-			zap.Bool("on_gce", onGCE),
-			zap.Duration("duration", time.Since(start)),
-		)
 	}()
 
 	// The user explicitly said they're on GCE, so trust them.
@@ -548,7 +543,6 @@ func (c *Client) getETag(ctx context.Context, suffix string) (value, etag string
 			zap.Duration("since_cur", time.Since(current)),
 		)
 		zap.L().Info("metadata server request (getETag)", fields...)
-		fmt.Printf("metadata server request (getETag): %s %v %+v\n", u, code, fields)
 		if delay, shouldRetry := retryer.Retry(code, reqErr); shouldRetry {
 			if res != nil && res.Body != nil {
 				res.Body.Close()
