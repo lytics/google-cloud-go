@@ -155,6 +155,7 @@ func initOnGCE() {
 func testOnGCE() bool {
 	start := time.Now()
 	defer func() {
+		fmt.Printf("OnGCE check took %s with result %s\n", time.Since(start), onGCE)
 		zap.L().Info("OnGCE check",
 			zap.Bool("on_gce", onGCE),
 			zap.Duration("duration", time.Since(start)),
