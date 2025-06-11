@@ -32,6 +32,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -75,7 +77,7 @@ func newDefaultHTTPClient() *http.Client {
 			}).Dial,
 			IdleConnTimeout: 60 * time.Second,
 		},
-		Timeout: 5 * time.Second,
+		//Timeout: 5 * time.Second,
 	}
 }
 
@@ -479,10 +481,17 @@ func (c *Client) getETag(ctx context.Context, suffix string) (value, etag string
 	var reqErr error
 	var body []byte
 	retryer := newRetryer()
+	start := time.Now()
+	try := 0
 	for {
+		current := time.Now()
 		c.logger.DebugContext(ctx, "metadata request", "request", httpRequest(req, nil))
 		res, reqErr = c.hc.Do(req)
 		var code int
+		fields := []zap.Field{
+			zap.String("url", u),
+			zap.Int("try", try),
+		}
 		if res != nil {
 			code = res.StatusCode
 			body, err = io.ReadAll(res.Body)
@@ -492,7 +501,17 @@ func (c *Client) getETag(ctx context.Context, suffix string) (value, etag string
 			}
 			c.logger.DebugContext(ctx, "metadata response", "response", httpResponse(res, body))
 			res.Body.Close()
+			fields = append(fields, zap.Int("code", code))
+			if code >= 300 {
+				fields = append(fields, zap.String("body", string(body)))
+			}
 		}
+
+		fields = append(fields,
+			zap.Duration("since_start", time.Since(start)),
+			zap.Duration("since_cur", time.Since(current)),
+		)
+		zap.L().Info("metadata server request", fields...)
 		if delay, shouldRetry := retryer.Retry(code, reqErr); shouldRetry {
 			if res != nil && res.Body != nil {
 				res.Body.Close()
@@ -500,6 +519,7 @@ func (c *Client) getETag(ctx context.Context, suffix string) (value, etag string
 			if err := sleep(ctx, delay); err != nil {
 				return "", "", err
 			}
+			try++
 			continue
 		}
 		break
