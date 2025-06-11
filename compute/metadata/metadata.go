@@ -153,6 +153,14 @@ func initOnGCE() {
 }
 
 func testOnGCE() bool {
+	start := time.Now()
+	defer func() {
+		zap.L().Info("OnGCE check",
+			zap.Bool("on_gce", onGCE),
+			zap.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	// The user explicitly said they're on GCE, so trust them.
 	if os.Getenv(metadataHostEnv) != "" {
 		return true
